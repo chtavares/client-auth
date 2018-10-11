@@ -1,0 +1,137 @@
+Hydra v0.9.16
+
+docker run \
+  --network hydraguide \
+  --name ory-hydra-example--postgres \
+  -e POSTGRES_USER=hydra \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=hydra \
+  -d --rm postgres:9.6
+
+export SYSTEM_SECRET='this_needs_to_be_the_same_always_and_also_very_$3cuR3-._'
+export DATABASE_URL=postgres://hydra:secret@ory-hydra-example--postgres:5432/hydra?sslmode=disable
+
+ docker run -it --rm \
+  --network hydraguide \
+  --entrypoint hydra \
+  oryd/hydra:v0.9.16 \
+  migrate sql $DATABASE_URL
+
+docker run -it --rm \
+  --name ory-hydra-example--hydra \
+  --network hydraguide \
+  -p 9000:4444 \
+  -e SYSTEM_SECRET=$SYSTEM_SECRET \
+  -e DATABASE_URL=$DATABASE_URL \
+  -e ISSUER=https://localhost:9000/ \
+  -e CONSENT_URL=http://localhost:29418/consent \
+  -e FORCE_ROOT_CLIENT_CREDENTIALS=client:secret \
+  oryd/hydra:v0.9.6 --dangerous-force-http
+
+docker run --rm -it \
+  -e CLUSTER_URL=http://ory-hydra-example--hydra:4444 \
+  -e CLIENT_ID=client \
+  -e CLIENT_SECRET=secret \
+  --network hydraguide \
+  -p 9010:4445 \
+ --entrypoint hydra \
+  oryd/hydra:v0.9.16 \
+  clients create --skip-tls-verify \
+    --id auth-server \
+    --secret auth-secret \
+    --name "Consent App Client" \
+    --grant-types client_credentials \
+    --response-types token \
+    --allowed-scopes hydra.keys.get,hydra.clients
+
+docker run --rm -it \
+  -e CLUSTER_URL=http://ory-hydra-example--hydra:4444 \
+  -e CLIENT_ID=client \
+  -e CLIENT_SECRET=secret \
+  --network hydraguide \
+  -p 9010:4445 \
+  --entrypoint hydra \
+  oryd/hydra:v0.9.16 \
+  policies create --skip-tls-verify \
+    --actions get \
+    --description "" \
+    --allow \
+    --id 75d532e1-8a07-4489-b1c5-b544c298e85c \
+    --resources "rn:hydra:clients:<.*>","rn:hydra:keys:hydra.consent.response:private","rn:hydra:keys:hydra.consent.challenge:private","rn:hydra:keys:hydra.consent.challenge:public" \
+    --subjects auth-server
+
+    docker run --rm -it \
+  -e CLUSTER_URL=http://ory-hydra-example--hydra:4444 \
+  -e CLIENT_ID=client \
+  -e CLIENT_SECRET=secret \
+  --network hydraguide \
+  -p 9010:4445 \
+ --entrypoint hydra \
+  oryd/hydra:v0.9.16 \
+  clients create --skip-tls-verify \
+    --id claudio \
+    --secret auth-secret \
+    --name "Consent App Client" \
+    --grant-types client_credentials \
+    --response-types token,code \
+    --allowed-scopes hydra.keys.get,hydra.clients \
+    --callbacks http://localhost:1323/callback
+
+
+___________________________________________________________________________________________________________________________________
+
+V1.0.0-BETA-9
+
+docker run \
+  --network hydraguide \
+  --name ory-hydra-example--postgres \
+  -e POSTGRES_USER=hydra \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=hydra \
+  -d --rm postgres:9.6
+
+export SYSTEM_SECRET='this_needs_to_be_the_same_always_and_also_very_$3cuR3-._'
+export DATABASE_URL=postgres://hydra:secret@ory-hydra-example--postgres:5432/hydra?sslmode=disable
+
+docker run -it --rm \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-beta.9 \
+  migrate sql $DATABASE_URL
+
+docker run -it --rm \
+  --name ory-hydra-example--hydra \
+  --network hydraguide \
+  -p 9000:4444 \
+  -p 9001:4445 \
+  -e SYSTEM_SECRET=$SYSTEM_SECRET \
+  -e DATABASE_URL=$DATABASE_URL \
+  -e OAUTH2_ISSUER_URL=http://localhost:9000/ \
+  -e OAUTH2_CONSENT_URL=http://localhost:3000/auth/consent \
+  -e OAUTH2_LOGIN_URL=http://localhost:3000/auth/login \
+  oryd/hydra:v1.0.0-beta.9 serve all --dangerous-force-http
+
+docker run --rm -it \
+  -e HYDRA_ADMIN_URL=http://ory-hydra-example--hydra:4445 \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-beta.9 \
+  clients create --skip-tls-verify \
+   --id claudio \
+    --secret auth-secret \
+    --name "Consent App Client" \
+    --grant-types client_credentials,authorization_code \
+    --response-types token,code \
+    --scope hydra.keys.get,hydra.clients \
+    --callbacks http://localhost:1323/callback
+
+docker run --rm -it \
+  -e HYDRA_ADMIN_URL=http://ory-hydra-example--hydra:4445 \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-beta.9 \
+  clients create --skip-tls-verify \
+    clients create --skip-tls-verify \
+    --id auth-server \
+    --secret auth-secret \
+    --name "Consent App Client" \
+    --grant-types client_credentials \
+    --response-types token \
+    --scope hydra.keys.get,hydra.clients
