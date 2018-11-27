@@ -80,7 +80,7 @@ docker run --rm -it \
 
 ___________________________________________________________________________________________________________________________________
 
-V1.0.0-BETA-9
+Hydra V1.0.0-BETA-9
 
 docker run \
   --network hydraguide \
@@ -90,8 +90,8 @@ docker run \
   -e POSTGRES_DB=hydra \
   -d --rm postgres:9.6
 
-export SYSTEM_SECRET='this_needs_to_be_the_same_always_and_also_very_$3cuR3-._'
-export DATABASE_URL=postgres://hydra:secret@ory-hydra-example--postgres:5432/hydra?sslmode=disable
+export SYSTEM_SECRET='this_needs_to_be_the_same_always_and_also_very_$3cuR3-._';
+export DATABASE_URL=postgres://hydra:secret@ory-hydra-example--postgres:5432/hydra?sslmode=disable;
 
 docker run -it --rm \
   --network hydraguide \
@@ -135,3 +135,103 @@ docker run --rm -it \
     --grant-types client_credentials \
     --response-types token \
     --scope hydra.keys.get,hydra.clients
+
+docker run --rm -it \
+  -e HYDRA_ADMIN_URL=http://ory-hydra-example--hydra:4445 \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-beta.9 \
+  clients create --skip-tls-verify \
+   --id client \
+    --secret secret \
+    --grant-types client_credentials,authorization_code \
+    --response-types token,code \
+    --scope hydra.keys.get,hydra.clients
+
+
+________________________________________________________________________________________________________________________________
+
+Hydra v1.0.0-rc.2_oryOS.9
+
+docker run \
+  --network hydraguide \
+  --name hydra-postgres \
+  -e POSTGRES_USER=dbtest \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=db \
+  -d --rm postgres:9.6
+
+export SYSTEM_SECRET='this_needs_to_be_the_same_always_and_also_very_$3cuR3-._'
+export DATABASE_URL=postgres://dbtest:secret@hydra-postgres:5432/db?sslmode=disable
+
+docker run -it --rm \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-rc.2_oryOS.9 \
+  migrate sql $DATABASE_URL
+
+docker run -it --rm \
+  --name ory-hydra-example \
+  --network hydraguide \
+  -p 9000:4444 \
+  -p 9001:4445 \
+  -e SYSTEM_SECRET=$SYSTEM_SECRET \
+  -e DATABASE_URL=$DATABASE_URL \
+  -e OAUTH2_ISSUER_URL=http://localhost:9000/ \
+  -e OAUTH2_CONSENT_URL=http://localhost:3000/auth/consent \
+  -e OAUTH2_LOGIN_URL=http://localhost:3000/auth/login \
+  oryd/hydra:v1.0.0-rc.2_oryOS.9 serve all --dangerous-force-http
+
+docker run --rm -it \
+  -e HYDRA_ADMIN_URL=http://ory-hydra-example:4445 \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-rc.2_oryOS.9 \
+  clients create --skip-tls-verify \
+   --id claudio \
+    --secret auth-secret \
+    --grant-types client_credentials,authorization_code \
+    --response-types token,code \
+    --scope hydra.keys.get,hydra.clients \
+    --callbacks http://localhost:1323/callback
+
+docker run --rm -it \
+  -e HYDRA_ADMIN_URL=http://ory-hydra-example:4445 \
+  --network hydraguide \
+  oryd/hydra:v1.0.0-rc.2_oryOS.9 \
+  clients create --skip-tls-verify \
+    clients create --skip-tls-verify \
+    --id auth-server \
+    --secret auth-secret \
+    --name "Consent App Client" \
+    --grant-types client_credentials \
+    --response-types token \
+    --scope hydra.keys.get,hydra.clients
+
+Run the idp ./manage.py runserver 0.0.0.0:3000 --settings uhauth.settings.dev
+________________________________________________________________________________________________________________________________
+
+Keto v0.1.9-sandbox_oryOS.9
+
+export DATABASE_URL=postgres://dbtest:secret@hydra-postgres:5432/db?sslmode=disable
+
+docker run -it --rm \
+  --network hydraguide \
+  oryd/keto:v0.1.9-sandbox_oryOS.9 \
+  migrate sql $DATABASE_URL
+
+docker run -it --rm \
+  --name ory-keto \
+  --network hydraguide \
+  -p 4466:4466 \
+  -e DATABASE_URL=$DATABASE_URL \
+  oryd/keto:v0.1.9-sandbox_oryOS.9 \
+  serve
+
+docker run -it --rm \
+  --network hydraguide \
+  oryd/keto:v0.1.9-sandbox_oryOS.9 \
+  policies create --endpoint http://ory-keto:4466/ \
+    --id test \
+    --allow \
+    -a create \
+    -s claudio \
+    -r "up:usee"
+_______________________________________________________________________________________________________________________________
